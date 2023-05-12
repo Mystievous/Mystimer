@@ -1,0 +1,7 @@
+name: Mystimer
+version: '${project.version}'
+main: io.github.mystievous.mystimer.Mystimer
+api-version: 1.19
+depend: [MystiCore]
+softdepend: [MystiGui]
+authors: [Mystievous]
