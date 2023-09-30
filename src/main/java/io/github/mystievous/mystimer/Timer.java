@@ -1,5 +1,8 @@
 package io.github.mystievous.mystimer;
 
+import io.github.mystievous.mystimer.event.TimerScheduledActionEvent;
+import io.github.mystievous.mystimer.event.TimerTimeChangeEvent;
+import io.github.mystievous.mystimer.exception.TimerUnsetException;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -10,18 +13,20 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.jetbrains.annotations.Range;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.*;
 import java.util.function.Consumer;
 
 public class Timer extends BukkitRunnable implements Listener {
 
     public static String formatDuration(Duration duration) {
-        return String.format("%d:%02d:%02d", duration.toHours(), duration.toMinutesPart(), duration.toSecondsPart());
+        Duration displayDuration = duration;
+        if (duration.compareTo(Duration.ZERO) <= 0) {
+            displayDuration = Duration.ZERO;
+        }
+        return String.format("%02d:%02d:%02d", displayDuration.toHours(), displayDuration.toMinutesPart(), displayDuration.toSecondsPart());
     }
 
     public enum State {
@@ -30,14 +35,17 @@ public class Timer extends BukkitRunnable implements Listener {
         ENDED
     }
 
-    public static final String START_ID = "start";
-    public static final String END_ID = "end";
-
-    private final String id;
+    public enum UpdateCause {
+        MANUAL_TIME_SET,
+        TIMER_RUNNING_UPDATE;
+    }
 
     private final Plugin plugin;
 
-    private Duration duration;
+    private Component barMessage;
+
+    private final Duration duration;
+    private Duration previousTimeLeft;
     private Duration timeLeft;
     private LocalDateTime endTime;
     private LocalDateTime lastPause;
@@ -46,59 +54,58 @@ public class Timer extends BukkitRunnable implements Listener {
     private final BossBar bossBar;
     private boolean bossBarShown;
 
-    private final Collection<TimeTrigger> triggers;
+    private final Map<Duration, Collection<ScheduledAction>> scheduledActions;
+    private final Collection<ScheduledPausingAction> resumeActions;
 
-    private boolean started;
-    private Runnable onStart;
-    private Runnable onResume;
-    private Runnable onPause;
-    private Runnable onEnd;
-
-    public Timer(Plugin plugin, String id, Duration duration) {
+    public Timer(Plugin plugin, Duration duration) {
         this.plugin = plugin;
-        this.id = id;
         LocalDateTime now = LocalDateTime.now();
         this.endTime = now.plus(duration);
         this.lastPause = now;
         this.duration = duration;
         this.timeLeft = this.duration;
+        this.previousTimeLeft = this.timeLeft;
         this.state = State.PAUSED;
+        this.barMessage = Component.text("Time Left: ");
         this.bossBar = BossBar.bossBar(
-                Component.text("Time Left: ")
-                        .append(Component.text(formatDuration(timeLeft), NamedTextColor.BLUE)),
+                barMessage.append(Component.text(formatDuration(timeLeft), NamedTextColor.BLUE)),
                 1.0f, BossBar.Color.BLUE, BossBar.Overlay.NOTCHED_10);
         this.bossBarShown = false;
-        this.triggers = new ArrayList<>();
-        this.onEnd = () -> pause(false);
-        this.started = false;
-        runTaskTimer(plugin, 0, 10);
+        this.scheduledActions = new HashMap<>();
+        this.resumeActions = new ArrayList<>();
+
+        registerEndAction(timer -> {
+            pauseTimer();
+            state = State.ENDED;
+        });
+
+        runTaskTimer(plugin, 0, 5);
     }
 
     public Duration getTimeLeft() {
         return timeLeft;
     }
 
-    public void addTrigger(TimeTrigger trigger) {
-        triggers.add(trigger);
+    public void setBarMessage(Component barMessage) {
+        this.barMessage = barMessage;
     }
 
-    public void setOnStart(Runnable onStart) {
-        this.onStart = onStart;
+    public void registerScheduledAction(ScheduledAction scheduledAction) {
+        Duration time = scheduledAction.getTime();
+        Collection<ScheduledAction> actions = scheduledActions.getOrDefault(time, new ArrayList<>());
+        actions.add(scheduledAction);
+        scheduledActions.put(time, actions);
     }
 
-    public void setOnResume(Runnable onResume) {
-        this.onResume = onResume;
+    public void registerStartAction(Consumer<Timer> startAction) {
+        registerScheduledAction(new ScheduledAction(duration, startAction));
     }
 
-    public void setOnPause(Runnable onPause) {
-        this.onPause = onPause;
+    public void registerEndAction(Consumer<Timer> endAction) {
+        registerScheduledAction(new ScheduledAction(Duration.ZERO, endAction));
     }
 
-    public void setOnEnd(Runnable onEnd) {
-        this.onEnd = onEnd;
-    }
-
-    public void start(boolean runTrigger) throws TimerUnsetException {
+    public void startTimer() throws TimerUnsetException {
         if (state.equals(State.ENDED)) {
             throw new TimerUnsetException();
         }
@@ -107,18 +114,10 @@ public class Timer extends BukkitRunnable implements Listener {
             LocalDateTime now = LocalDateTime.now();
             endTime = endTime.plus(Duration.between(lastPause, now));
             state = State.RUNNING;
-            if (runTrigger) {
-                if (onStart != null && !started) {
-                    started = true;
-                    onStart.run();
-                } else if (onResume != null) {
-                    onResume.run();
-                }
-            }
         }
     }
 
-    public void pause(boolean runTrigger) {
+    public void pauseTimer() {
         if (state.equals(State.ENDED)) {
             return;
         }
@@ -126,9 +125,6 @@ public class Timer extends BukkitRunnable implements Listener {
         if (!state.equals(State.PAUSED)) {
             lastPause = LocalDateTime.now();
             state = State.PAUSED;
-            if (runTrigger && onPause != null) {
-                onPause.run();
-            }
         }
     }
 
@@ -136,34 +132,38 @@ public class Timer extends BukkitRunnable implements Listener {
         if (timeLeft.compareTo(duration) > 0) {
             throw new IllegalArgumentException("Time is outside the duration of timer.");
         }
-        this.timeLeft = timeLeft;
-        LocalDateTime now = LocalDateTime.now();
-        endTime = now.plus(timeLeft);
-        lastPause = now;
 
-        pause(false);
-
-        for (TimeTrigger trigger : triggers) {
-            if (trigger.getTime().compareTo(timeLeft) < 0) {
-                trigger.reset();
-            }
+        TimerTimeChangeEvent event = new TimerTimeChangeEvent(this, UpdateCause.MANUAL_TIME_SET, this.timeLeft, timeLeft);
+        Bukkit.getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
+            return;
         }
 
-        updateTime();
+        resumeActions.clear();
+        this.timeLeft = event.getNewTime();
+        this.previousTimeLeft = this.timeLeft;
+        LocalDateTime now = LocalDateTime.now();
+        endTime = now.plus(event.getNewTime());
+
+        lastPause = now;
+
+        pauseTimer();
+        state = State.PAUSED;
+
+        updateTitle();
     }
 
     public void reset() {
         setTimeLeft(duration);
-        started = false;
     }
 
-    public void updateTime() {
-        timeLeft = Duration.between(LocalDateTime.now(), endTime);
-        Component name = Component.text("Time left: ")
-                .append(Component.text(formatDuration(timeLeft), NamedTextColor.BLUE));
-        bossBar.name(name);
-        float progress = timeLeft.dividedBy(duration);
-        bossBar.progress(1-Math.min(Math.max(progress, 0), 1));
+    private void updateTitle() {
+        Component name = barMessage.append(Component.text(formatDuration(timeLeft), NamedTextColor.BLUE));
+        setBossBarName(name);
+        float progress = (float) timeLeft.getSeconds() / duration.getSeconds();
+//        float barProgress = 1 - Math.min(Math.max(progress, 0), 1);
+        bossBar.progress(progress);
+//        Bukkit.getServer().sendMessage(Component.text(String.format("timeLeft: %s, duration: %s, progress: %.2f, bossbar: %.2f", formatDuration(timeLeft), formatDuration(duration), progress, barProgress)));
     }
 
     @Override
@@ -173,23 +173,52 @@ public class Timer extends BukkitRunnable implements Listener {
             return;
         }
 
-        for (TimeTrigger trigger : triggers) {
-            trigger.check(this);
+        boolean actionDidPause = !resumeActions.isEmpty();
+
+        if (actionDidPause) {
+            for (ScheduledPausingAction action : resumeActions) {
+                action.runResumeAction(this);
+            }
+            resumeActions.clear();
+        } else {
+            List<Duration> actionKeys = scheduledActions.keySet().stream()
+                    .filter(actionTime -> actionTime.compareTo(previousTimeLeft) <= 0 && actionTime.compareTo(timeLeft) > 0)
+                    .toList();
+
+            for (Duration key : actionKeys) {
+                Collection<ScheduledAction> actions = scheduledActions.get(key);
+                for (ScheduledAction action : actions) {
+                    TimerScheduledActionEvent actionEvent = new TimerScheduledActionEvent(this, action);
+                    Bukkit.getPluginManager().callEvent(actionEvent);
+                    if (actionEvent.isCancelled()) {
+                        continue;
+                    }
+                    action.runTimeAction(this);
+                    if (action instanceof ScheduledPausingAction pausingAction) {
+                        resumeActions.add(pausingAction);
+                    }
+                }
+            }
         }
 
-        if (state != State.ENDED && timeLeft.compareTo(Duration.ZERO) <= 0) {
-            TimeTriggerEvent event = new TimeTriggerEvent(this, END_ID);
-            Bukkit.getPluginManager().callEvent(event);
-            pause(false);
-            state = State.ENDED;
-            onEnd.run();
-        }
 
-        if (state.equals(State.ENDED) || state.equals(State.PAUSED)) {
+        if (state == State.ENDED || state.equals(State.PAUSED)) {
             return;
         }
 
-        updateTime();
+        Duration newTimeLeft = Duration.between(LocalDateTime.now(), endTime);
+
+        TimerTimeChangeEvent event = new TimerTimeChangeEvent(this, UpdateCause.TIMER_RUNNING_UPDATE, this.timeLeft, newTimeLeft);
+        Bukkit.getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
+            return;
+        }
+        newTimeLeft = event.getNewTime();
+
+        previousTimeLeft = timeLeft;
+        timeLeft = newTimeLeft;
+
+        updateTitle();
 
     }
 

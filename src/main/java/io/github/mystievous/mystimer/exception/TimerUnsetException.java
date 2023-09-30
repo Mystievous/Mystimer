@@ -1,4 +1,4 @@
-package io.github.mystievous.mystimer;
+package io.github.mystievous.mystimer.exception;
 
 public class TimerUnsetException extends Exception {
 
