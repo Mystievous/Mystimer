@@ -1,0 +1,86 @@
+plugins {
+    id 'java'
+    id "maven-publish"
+}
+
+group = 'io.github.mystievous'
+version = System.getenv("VERSION")
+
+repositories {
+    mavenCentral()
+    maven {
+        name = "papermc-repo"
+        url = "https://repo.papermc.io/repository/maven-public/"
+    }
+    maven {
+        name = "sonatype"
+        url = "https://oss.sonatype.org/content/groups/public/"
+    }
+    maven {
+        name = "mysticore-repo"
+        url = "https://maven.pkg.github.com/Mystievous/MystiCore"
+        credentials {
+            username = project.findProperty("gpr.username") ?: System.getenv("USERNAME")
+            password = project.findProperty("gpr.token") ?: System.getenv("TOKEN")
+        }
+    }
+    maven {
+        name = "mystigui-repo"
+        url = "https://maven.pkg.github.com/Mystievous/MystiGui"
+        credentials {
+            username = project.findProperty("gpr.username") ?: System.getenv("USERNAME")
+            password = project.findProperty("gpr.token") ?: System.getenv("TOKEN")
+        }
+    }
+}
+
+dependencies {
+    compileOnly "io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT"
+    compileOnly "io.github.mystievous:mysticore:1.1.8"
+    compileOnly "io.github.mystievous:mystigui:1.2.6"
+}
+
+def targetJavaVersion = 17
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    sourceCompatibility = javaVersion
+    targetCompatibility = javaVersion
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        options.release = targetJavaVersion
+    }
+}
+
+processResources {
+    def props = [version: version]
+    inputs.properties props
+    filteringCharset 'UTF-8'
+    filesMatching('plugin.yml') {
+        expand props
+    }
+}
+
+publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/Mystievous/Mystimer")
+            credentials {
+                username = project.findProperty("gpr.username") ?: System.getenv("USERNAME")
+                password = project.findProperty("gpr.token") ?: System.getenv("TOKEN")
+            }
+        }
+    }
+    publications {
+        gpr(MavenPublication) {
+            groupId 'io.github.mystievous'
+            artifactId 'mystimer'
+            from components.java
+        }
+    }
+}
