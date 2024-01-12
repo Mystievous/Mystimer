@@ -57,7 +57,7 @@ public class Timer extends BukkitRunnable implements Listener {
     private final Map<Duration, Collection<ScheduledAction>> scheduledActions;
     private final Collection<ScheduledPausingAction> resumeActions;
 
-    public Timer(Plugin plugin, Duration duration) {
+    public Timer(Plugin plugin, Duration duration, long updatePeriod) {
         this.plugin = plugin;
         LocalDateTime now = LocalDateTime.now();
         this.endTime = now.plus(duration);
@@ -79,8 +79,13 @@ public class Timer extends BukkitRunnable implements Listener {
             state = State.ENDED;
         });
 
-        runTaskTimer(plugin, 0, 5);
+        runTaskTimer(plugin, 0, updatePeriod);
     }
+
+    public Timer(Plugin plugin, Duration duration) {
+        this(plugin, duration, 5L);
+    }
+
 
     public Duration getTimeLeft() {
         return timeLeft;
