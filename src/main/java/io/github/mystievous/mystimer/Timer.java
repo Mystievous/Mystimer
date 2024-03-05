@@ -110,6 +110,10 @@ public class Timer extends BukkitRunnable implements Listener {
         registerScheduledAction(new ScheduledAction(Duration.ZERO, endAction));
     }
 
+    public Duration inverseTime(Duration timeFromStart) {
+        return duration.minus(timeFromStart);
+    }
+
     public void startTimer() throws TimerUnsetException {
         if (state.equals(State.ENDED)) {
             throw new TimerUnsetException();
