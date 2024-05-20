@@ -170,8 +170,8 @@ public class Timer extends BukkitRunnable implements Listener {
         Component name = barMessage.append(Component.text(formatDuration(timeLeft), NamedTextColor.BLUE));
         setBossBarName(name);
         float progress = (float) timeLeft.getSeconds() / duration.getSeconds();
-//        float barProgress = 1 - Math.min(Math.max(progress, 0), 1);
-        bossBar.progress(progress);
+        float barProgress = Math.min(Math.max(progress, 0), 1);
+        bossBar.progress(barProgress);
 //        Bukkit.getServer().sendMessage(Component.text(String.format("timeLeft: %s, duration: %s, progress: %.2f, bossbar: %.2f", formatDuration(timeLeft), formatDuration(duration), progress, barProgress)));
     }
 
