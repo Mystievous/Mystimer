@@ -1,7 +1,7 @@
-package io.github.mystievous.mystimer.event;
+package com.starseekstudios.mystimer.event;
 
-import io.github.mystievous.mystimer.ScheduledAction;
-import io.github.mystievous.mystimer.Timer;
+import com.starseekstudios.mystimer.ScheduledAction;
+import com.starseekstudios.mystimer.Timer;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;

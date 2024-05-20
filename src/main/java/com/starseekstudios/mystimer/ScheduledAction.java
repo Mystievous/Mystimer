@@ -1,4 +1,4 @@
-package io.github.mystievous.mystimer;
+package com.starseekstudios.mystimer;
 
 import java.time.Duration;
 import java.util.function.Consumer;

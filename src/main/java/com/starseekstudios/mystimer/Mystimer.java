@@ -1,4 +1,4 @@
-package io.github.mystievous.mystimer;
+package com.starseekstudios.mystimer;
 
 import org.bukkit.plugin.java.JavaPlugin;
 

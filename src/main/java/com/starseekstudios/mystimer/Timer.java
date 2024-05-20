@@ -1,8 +1,8 @@
-package io.github.mystievous.mystimer;
+package com.starseekstudios.mystimer;
 
-import io.github.mystievous.mystimer.event.TimerScheduledActionEvent;
-import io.github.mystievous.mystimer.event.TimerTimeChangeEvent;
-import io.github.mystievous.mystimer.exception.TimerUnsetException;
+import com.starseekstudios.mystimer.event.TimerTimeChangeEvent;
+import com.starseekstudios.mystimer.event.TimerScheduledActionEvent;
+import com.starseekstudios.mystimer.exception.TimerUnsetException;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;

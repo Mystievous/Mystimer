@@ -1,6 +1,6 @@
 name: Mystimer
 version: '${version}'
-main: io.github.mystievous.mystimer.Mystimer
+main: com.starseekstudios.mystimer.Mystimer
 api-version: 1.19
 depend: [MystiCore]
 softdepend: [MystiGui]

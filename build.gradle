@@ -3,7 +3,7 @@ plugins {
     id "maven-publish"
 }
 
-group = 'io.github.mystievous'
+group = 'com.starseekstudios'
 version = System.getenv("VERSION") ?: '0.0.0-dev'
 
 repositories {
@@ -17,16 +17,12 @@ repositories {
         url = "https://oss.sonatype.org/content/groups/public/"
     }
     maven {
-        name = "mysticore-repo"
-        url = "https://maven.pkg.github.com/Mystievous/MystiCore"
-        credentials {
-            username = project.findProperty("gpr.username") ?: System.getenv("USERNAME")
-            password = project.findProperty("gpr.token") ?: System.getenv("TOKEN")
-        }
+        name = "sonatype-oss-snapshots1"
+        url = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
     }
     maven {
-        name = "mystigui-repo"
-        url = "https://maven.pkg.github.com/Mystievous/MystiGui"
+        name = "mysticore-repo"
+        url = "https://maven.pkg.github.com/Mystievous/MystiCore"
         credentials {
             username = project.findProperty("gpr.username") ?: System.getenv("USERNAME")
             password = project.findProperty("gpr.token") ?: System.getenv("TOKEN")
@@ -35,11 +31,11 @@ repositories {
 }
 
 dependencies {
-    compileOnly "io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT"
-    compileOnly "io.github.mystievous:mysticore:1.1.14"
+    compileOnly "io.papermc.paper:paper-api:1.20.6-R0.1-SNAPSHOT"
+    compileOnly "com.starseekstudios:mysticore:1.4.0"
 }
 
-def targetJavaVersion = 17
+def targetJavaVersion = 21
 java {
     def javaVersion = JavaVersion.toVersion(targetJavaVersion)
     sourceCompatibility = javaVersion
@@ -77,7 +73,7 @@ publishing {
     }
     publications {
         gpr(MavenPublication) {
-            groupId 'io.github.mystievous'
+            groupId 'com.starseekstudios'
             artifactId 'mystimer'
             from components.java
         }
