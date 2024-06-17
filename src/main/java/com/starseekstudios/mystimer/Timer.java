@@ -44,7 +44,7 @@ public class Timer extends BukkitRunnable implements Listener {
 
     private Component barMessage;
 
-    private final Duration duration;
+    private Duration duration;
     private Duration previousTimeLeft;
     private Duration timeLeft;
     private LocalDateTime endTime;
@@ -86,6 +86,10 @@ public class Timer extends BukkitRunnable implements Listener {
         this(plugin, duration, 5L);
     }
 
+    public void setDuration(Duration duration) {
+        this.duration = duration;
+        reset();
+    }
 
     public Duration getTimeLeft() {
         return timeLeft;
