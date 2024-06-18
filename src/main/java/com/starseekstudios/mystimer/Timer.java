@@ -86,6 +86,10 @@ public class Timer extends BukkitRunnable implements Listener {
         this(plugin, duration, 5L);
     }
 
+    public State getState() {
+        return state;
+    }
+
     public void setDuration(Duration duration) {
         this.duration = duration;
         reset();
